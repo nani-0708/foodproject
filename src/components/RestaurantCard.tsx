@@ -2,6 +2,7 @@
 import React from 'react';
 import { MapPin, Clock, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 
 interface RestaurantProps {
   id: string;
@@ -15,6 +16,7 @@ interface RestaurantProps {
 }
 
 const RestaurantCard = ({
+  id,
   name,
   cuisine,
   imageUrl,
@@ -23,8 +25,14 @@ const RestaurantCard = ({
   distance,
   platforms,
 }: RestaurantProps) => {
+  const navigate = useNavigate();
+  
+  const handleClick = () => {
+    navigate(`/restaurant/${id}`);
+  };
+  
   return (
-    <div className="food-card flex flex-col">
+    <div className="food-card flex flex-col cursor-pointer hover:shadow-md transition-shadow" onClick={handleClick}>
       <div className="relative h-48 w-full">
         <img
           src={imageUrl}

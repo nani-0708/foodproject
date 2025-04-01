@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { Clock, DollarSign, Star } from 'lucide-react';
+import { Clock, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface FoodItemPricing {
   platform: string;
@@ -10,6 +11,7 @@ interface FoodItemPricing {
   deliveryFee: number;
   estimatedTime: number;
   discountCode?: string;
+  appUrl?: string; // Added for app redirection
 }
 
 interface FoodCardProps {
@@ -32,8 +34,33 @@ const FoodCard = ({
   rating,
   pricingOptions,
 }: FoodCardProps) => {
+  const { toast } = useToast();
+  
   // Find the lowest priced option
   const cheapestOption = [...pricingOptions].sort((a, b) => a.price - b.price)[0];
+  
+  // Handle redirect to the respective app
+  const handleOrderNow = (platform: string) => {
+    // In a real implementation, we would have actual deep links to the food apps
+    // For now, we'll simulate with a toast notification
+    
+    const platformUrls = {
+      "Swiggy": "https://www.swiggy.com/search?query=" + encodeURIComponent(name),
+      "Zomato": "https://www.zomato.com/search?q=" + encodeURIComponent(name),
+      "UberEats": "https://www.ubereats.com/search?q=" + encodeURIComponent(name),
+    };
+    
+    // Get the URL for the selected platform
+    const url = platformUrls[platform as keyof typeof platformUrls];
+    
+    toast({
+      title: "Redirecting to " + platform,
+      description: `Taking you to order ${name} on ${platform}`,
+    });
+    
+    // Open in a new tab
+    window.open(url, '_blank');
+  };
   
   return (
     <div className="food-card">
@@ -58,7 +85,8 @@ const FoodCard = ({
           <h4 className="font-medium mb-2">Price Comparison</h4>
           <div className="space-y-2">
             {pricingOptions.map((option, index) => (
-              <div key={index} className="flex justify-between items-center p-2 rounded-md bg-gray-50">
+              <div key={index} className="flex justify-between items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer" 
+                    onClick={() => handleOrderNow(option.platform)}>
                 <div className="flex items-center">
                   <img 
                     src={`/placeholder.svg`} 
@@ -87,7 +115,10 @@ const FoodCard = ({
                 <div className="text-xs">Use code: <span className="font-bold">{cheapestOption.discountCode}</span></div>
               )}
             </div>
-            <Button className="bg-food-orange hover:bg-food-orange/90">
+            <Button 
+              className="bg-food-orange hover:bg-food-orange/90"
+              onClick={() => handleOrderNow(cheapestOption.platform)}
+            >
               Order Now
             </Button>
           </div>
