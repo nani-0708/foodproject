@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { MapPin, Clock, Star } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MapPin, Clock, Star, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,9 +26,22 @@ const RestaurantCard = ({
   platforms,
 }: RestaurantProps) => {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setIsLoggedIn(userData.isLoggedIn);
+    }
+  }, []);
   
   const handleClick = () => {
-    navigate(`/restaurant/${id}`);
+    if (!isLoggedIn) {
+      navigate('/login');
+    } else {
+      navigate(`/restaurant/${id}`);
+    }
   };
   
   return (
@@ -42,6 +55,14 @@ const RestaurantCard = ({
         <Badge className="absolute top-2 right-2 bg-food-orange">
           <Star className="h-3 w-3 mr-1 fill-white stroke-white" /> {rating.toFixed(1)}
         </Badge>
+        {!isLoggedIn && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <div className="text-white text-center p-4">
+              <Lock className="h-8 w-8 mx-auto mb-2" />
+              <p className="font-bold">Login to see real prices</p>
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="p-4 flex flex-col flex-grow">

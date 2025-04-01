@@ -1,9 +1,10 @@
 
-import React from 'react';
-import { Clock, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface FoodItemPricing {
   platform: string;
@@ -11,7 +12,7 @@ interface FoodItemPricing {
   deliveryFee: number;
   estimatedTime: number;
   discountCode?: string;
-  appUrl?: string; // Added for app redirection
+  appUrl?: string;
 }
 
 interface FoodCardProps {
@@ -26,6 +27,7 @@ interface FoodCardProps {
 }
 
 const FoodCard = ({
+  id,
   name,
   restaurant,
   cuisine,
@@ -35,12 +37,52 @@ const FoodCard = ({
   pricingOptions,
 }: FoodCardProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [priceUpdates, setPriceUpdates] = useState<Record<string, { isNew: boolean, increased?: boolean }>>({});
+  
+  // Check if user is logged in
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setIsLoggedIn(userData.isLoggedIn);
+    }
+  }, []);
+  
+  // Track price changes for animations
+  useEffect(() => {
+    const updates: Record<string, { isNew: boolean, increased?: boolean }> = {};
+    
+    pricingOptions.forEach(option => {
+      updates[option.platform] = { isNew: true };
+    });
+    
+    setPriceUpdates(updates);
+    
+    const timer = setTimeout(() => {
+      const clearedUpdates: Record<string, { isNew: boolean, increased?: boolean }> = {};
+      
+      Object.keys(updates).forEach(key => {
+        clearedUpdates[key] = { isNew: false };
+      });
+      
+      setPriceUpdates(clearedUpdates);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [pricingOptions]);
   
   // Find the lowest priced option
   const cheapestOption = [...pricingOptions].sort((a, b) => a.price - b.price)[0];
   
   // Handle redirect to the respective app
   const handleOrderNow = (platform: string) => {
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
+    }
+    
     // In a real implementation, we would have actual deep links to the food apps
     // For now, we'll simulate with a toast notification
     
@@ -82,11 +124,31 @@ const FoodCard = ({
         <p className="text-sm line-clamp-2 mb-3 text-food-dark/80">{description}</p>
         
         <div className="border-t pt-3">
-          <h4 className="font-medium mb-2">Price Comparison</h4>
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-medium">Price Comparison</h4>
+            {!isLoggedIn && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-food-orange text-xs"
+                onClick={() => navigate('/login')}
+              >
+                Login for real prices
+              </Button>
+            )}
+          </div>
+          
           <div className="space-y-2">
             {pricingOptions.map((option, index) => (
-              <div key={index} className="flex justify-between items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer" 
-                    onClick={() => handleOrderNow(option.platform)}>
+              <div 
+                key={index} 
+                className="flex justify-between items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer relative overflow-hidden" 
+                onClick={() => handleOrderNow(option.platform)}
+              >
+                {priceUpdates[option.platform]?.isNew && (
+                  <div className="absolute inset-0 bg-yellow-100 opacity-30 animate-pulse" />
+                )}
+                
                 <div className="flex items-center">
                   <img 
                     src={`/placeholder.svg`} 
@@ -95,15 +157,35 @@ const FoodCard = ({
                   />
                   <span className="font-medium">{option.platform}</span>
                 </div>
+                
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1 text-food-gray" />
                     <span className="text-sm">{option.estimatedTime} min</span>
                   </div>
-                  <div className="font-bold text-food-orange">
+                  
+                  <div className={`font-bold flex items-center ${
+                    priceUpdates[option.platform]?.isNew 
+                      ? priceUpdates[option.platform]?.increased 
+                        ? "text-red-500" 
+                        : "text-green-500"
+                      : "text-food-orange"
+                  }`}>
+                    {priceUpdates[option.platform]?.isNew && priceUpdates[option.platform]?.increased && (
+                      <ArrowUp className="h-3 w-3 mr-1" />
+                    )}
+                    {priceUpdates[option.platform]?.isNew && !priceUpdates[option.platform]?.increased && (
+                      <ArrowDown className="h-3 w-3 mr-1" />
+                    )}
                     ${option.price.toFixed(2)}
                   </div>
                 </div>
+                
+                {option.discountCode && isLoggedIn && (
+                  <Badge className="absolute top-0 right-0 bg-green-500 text-xs transform translate-x-1/4 -translate-y-1/4 py-0 px-1">
+                    Deal
+                  </Badge>
+                )}
               </div>
             ))}
           </div>
@@ -111,10 +193,11 @@ const FoodCard = ({
           <div className="mt-4 flex justify-between items-center">
             <div className="text-sm text-food-gray">
               <span className="font-medium">Best price on {cheapestOption.platform}</span>
-              {cheapestOption.discountCode && (
+              {cheapestOption.discountCode && isLoggedIn && (
                 <div className="text-xs">Use code: <span className="font-bold">{cheapestOption.discountCode}</span></div>
               )}
             </div>
+            
             <Button 
               className="bg-food-orange hover:bg-food-orange/90"
               onClick={() => handleOrderNow(cheapestOption.platform)}
