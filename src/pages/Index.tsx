@@ -2,24 +2,22 @@
 import React, { useState, useEffect } from 'react';
 import SearchBar from '@/components/SearchBar';
 import FilterBar from '@/components/FilterBar';
-import FoodCard from '@/components/FoodCard';
 import RestaurantCard from '@/components/RestaurantCard';
 import SkeletonCard from '@/components/SkeletonCard';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { foodItems, restaurants } from '@/data/mockData';
+import { restaurants } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { useRealTimePrices } from '@/hooks/use-real-time-prices';
 
 const Index = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("food");
-  const [sortOption, setSortOption] = useState("price_low");
+  const [sortOption, setSortOption] = useState("rating");
   const [activePlatforms, setActivePlatforms] = useState<string[]>(["Swiggy", "Zomato", "UberEats"]);
-  const [filteredFoodItems, setFilteredFoodItems] = useState(foodItems);
   const [filteredRestaurants, setFilteredRestaurants] = useState(restaurants);
   const { toast } = useToast();
+  const { isLoggedIn } = useRealTimePrices([]);
   
   // Simulate loading
   useEffect(() => {
@@ -37,26 +35,18 @@ const Index = () => {
     
     // Simulate API call delay
     setTimeout(() => {
-      // Filter food items based on search query
-      const filteredFood = foodItems.filter(item => 
-        item.name.toLowerCase().includes(query.toLowerCase()) || 
-        item.restaurant.toLowerCase().includes(query.toLowerCase()) ||
-        item.cuisine.toLowerCase().includes(query.toLowerCase())
-      );
-      
       // Filter restaurants based on search query
       const filteredRest = restaurants.filter(item => 
         item.name.toLowerCase().includes(query.toLowerCase()) || 
         item.cuisine.some(c => c.toLowerCase().includes(query.toLowerCase()))
       );
       
-      setFilteredFoodItems(filteredFood);
       setFilteredRestaurants(filteredRest);
       setLoading(false);
       
       toast({
         title: "Search Results",
-        description: `Found ${filteredFood.length} food items and ${filteredRest.length} restaurants`,
+        description: `Found ${filteredRest.length} restaurants`,
       });
     }, 800);
   };
@@ -68,38 +58,27 @@ const Index = () => {
     
     // Simulate API call delay
     setTimeout(() => {
-      let sortedItems = [...filteredFoodItems];
+      let sortedItems = [...filteredRestaurants];
       
       switch (value) {
-        case "price_low":
-          sortedItems.sort((a, b) => {
-            const minPriceA = Math.min(...a.pricingOptions.map(option => option.price));
-            const minPriceB = Math.min(...b.pricingOptions.map(option => option.price));
-            return minPriceA - minPriceB;
-          });
-          break;
-        case "price_high":
-          sortedItems.sort((a, b) => {
-            const minPriceA = Math.min(...a.pricingOptions.map(option => option.price));
-            const minPriceB = Math.min(...b.pricingOptions.map(option => option.price));
-            return minPriceB - minPriceA;
-          });
-          break;
         case "rating":
           sortedItems.sort((a, b) => b.rating - a.rating);
           break;
         case "delivery_time":
+          sortedItems.sort((a, b) => a.deliveryTime - b.deliveryTime);
+          break;
+        case "distance":
           sortedItems.sort((a, b) => {
-            const minTimeA = Math.min(...a.pricingOptions.map(option => option.estimatedTime));
-            const minTimeB = Math.min(...b.pricingOptions.map(option => option.estimatedTime));
-            return minTimeA - minTimeB;
+            const distA = parseFloat(a.distance.replace(' km', ''));
+            const distB = parseFloat(b.distance.replace(' km', ''));
+            return distA - distB;
           });
           break;
         default:
           break;
       }
       
-      setFilteredFoodItems(sortedItems);
+      setFilteredRestaurants(sortedItems);
       setLoading(false);
     }, 500);
   };
@@ -131,13 +110,6 @@ const Index = () => {
     
     // Simulate API call delay
     setTimeout(() => {
-      // Filter food items based on selected platforms
-      const filtered = foodItems.filter(item => 
-        item.pricingOptions.some(option => 
-          updatedPlatforms.includes(option.platform)
-        )
-      );
-      
       // Filter restaurants based on selected platforms
       const filteredRest = restaurants.filter(restaurant => 
         restaurant.platforms.some(platform => 
@@ -145,7 +117,6 @@ const Index = () => {
         )
       );
       
-      setFilteredFoodItems(filtered);
       setFilteredRestaurants(filteredRest);
       setLoading(false);
     }, 500);
@@ -159,74 +130,50 @@ const Index = () => {
         <section className="bg-gradient-to-b from-white to-food-orange/5 py-16">
           <div className="container mx-auto px-4 md:px-6 text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="text-food-orange">Compare</span> Food Prices & Save
+              <span className="text-food-orange">Compare</span> Restaurant Prices & Save
             </h1>
             <p className="text-food-gray max-w-2xl mx-auto mb-8">
-              Find the best prices for your favorite meals across Swiggy, Zomato, and other food delivery platforms.
+              Find the best prices and delivery options across Swiggy, Zomato, and other food delivery platforms.
             </p>
             
             <SearchBar onSearch={handleSearch} />
+            
+            {!isLoggedIn && (
+              <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 rounded-md max-w-md mx-auto">
+                <p className="text-sm">
+                  <strong>Login required:</strong> Connect your food delivery accounts to see real-time prices and offers.
+                </p>
+              </div>
+            )}
           </div>
         </section>
         
         <section className="py-8">
           <div className="container mx-auto px-4 md:px-6">
-            <Tabs defaultValue="food" value={activeTab} onValueChange={setActiveTab}>
-              <div className="flex justify-center mb-6">
-                <TabsList>
-                  <TabsTrigger value="food">Food Items</TabsTrigger>
-                  <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
-                </TabsList>
+            <FilterBar 
+              onSortChange={handleSortChange}
+              onFilterChange={handleFilterChange}
+              activePlatforms={activePlatforms}
+            />
+            
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <SkeletonCard key={index} />
+                ))}
               </div>
-              
-              <FilterBar 
-                onSortChange={handleSortChange}
-                onFilterChange={handleFilterChange}
-                activePlatforms={activePlatforms}
-              />
-              
-              <TabsContent value="food">
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {Array.from({ length: 6 }).map((_, index) => (
-                      <SkeletonCard key={index} />
-                    ))}
-                  </div>
-                ) : filteredFoodItems.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredFoodItems.map((item) => (
-                      <FoodCard key={item.id} {...item} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <h3 className="text-xl font-medium">No food items found</h3>
-                    <p className="text-food-gray mt-2">Try a different search term or filter combination</p>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="restaurants">
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {Array.from({ length: 6 }).map((_, index) => (
-                      <SkeletonCard key={index} />
-                    ))}
-                  </div>
-                ) : filteredRestaurants.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredRestaurants.map((restaurant) => (
-                      <RestaurantCard key={restaurant.id} {...restaurant} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <h3 className="text-xl font-medium">No restaurants found</h3>
-                    <p className="text-food-gray mt-2">Try a different search term or filter combination</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+            ) : filteredRestaurants.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRestaurants.map((restaurant) => (
+                  <RestaurantCard key={restaurant.id} {...restaurant} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <h3 className="text-xl font-medium">No restaurants found</h3>
+                <p className="text-food-gray mt-2">Try a different search term or filter combination</p>
+              </div>
+            )}
           </div>
         </section>
       </main>
