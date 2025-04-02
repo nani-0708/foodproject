@@ -165,7 +165,11 @@ const Index = () => {
             ) : filteredRestaurants.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredRestaurants.map((restaurant) => (
-                  <RestaurantCard key={restaurant.id} {...restaurant} />
+                  <RestaurantCard 
+                    key={restaurant.id} 
+                    {...restaurant} 
+                    showApproxPrices={true}
+                  />
                 ))}
               </div>
             ) : (
