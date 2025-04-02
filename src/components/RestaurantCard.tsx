@@ -13,6 +13,7 @@ interface RestaurantProps {
   deliveryTime: number;
   distance: string;
   platforms: string[];
+  showApproxPrices?: boolean; // Added the missing prop
 }
 
 const RestaurantCard = ({
@@ -24,6 +25,7 @@ const RestaurantCard = ({
   deliveryTime,
   distance,
   platforms,
+  showApproxPrices = false, // Default value of false
 }: RestaurantProps) => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -96,6 +98,13 @@ const RestaurantCard = ({
               </Badge>
             ))}
           </div>
+          
+          {/* Display approximate prices if showApproxPrices is true */}
+          {showApproxPrices && (
+            <div className="mt-2 text-xs text-food-gray">
+              <p>~$15-18</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
