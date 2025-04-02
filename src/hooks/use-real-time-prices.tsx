@@ -32,7 +32,12 @@ export function useRealTimePrices(initialPrices: any[]) {
         localStorage.removeItem('user');
       }
     }
-  }, []);
+  }, []); // Empty dependency array to run only once on mount
+
+  // Initialize prices state when initialPrices or isLoggedIn changes
+  useEffect(() => {
+    setPrices(initialPrices);
+  }, [JSON.stringify(initialPrices)]); // Using stringify to compare array contents
 
   // Simulate real-time price updates
   useEffect(() => {
@@ -97,7 +102,7 @@ export function useRealTimePrices(initialPrices: any[]) {
     }, 15000); // Update every 15 seconds
     
     return () => clearInterval(interval);
-  }, [isLoggedIn, prices]);
+  }, [isLoggedIn, JSON.stringify(prices)]); // Added proper dependency array
 
   return { prices, updates, isLoggedIn };
 }
