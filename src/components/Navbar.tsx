@@ -1,10 +1,15 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, LogIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  
+  // Check if user is logged in
+  const isLoggedIn = localStorage.getItem('user') !== null;
+  
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm w-full">
       <div className="container mx-auto px-4 md:px-6 py-3 flex justify-between items-center">
@@ -21,9 +26,18 @@ const Navbar = () => {
           </Link>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <Button variant="ghost" size="icon" className="text-food-dark hover:text-food-orange">
             <Search className="h-5 w-5" />
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 border-food-orange text-food-orange hover:bg-food-orange hover:text-white"
+            onClick={() => navigate('/login')}
+          >
+            {isLoggedIn ? 'Account' : 'Login'}
+            <LogIn className="h-4 w-4" />
           </Button>
         </div>
       </div>
