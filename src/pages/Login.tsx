@@ -1,218 +1,311 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Phone, Loader } from 'lucide-react';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-
-// Define the form schema
-const phoneFormSchema = z.object({
-  phone: z.string().min(10, { message: "Please enter a valid phone number" }),
-  platform: z.enum(["swiggy", "zomato", "ubereats"]),
-});
-
-const otpFormSchema = z.object({
-  otp: z.string().min(4, { message: "Please enter a valid OTP" })
-});
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [showOtpForm, setShowOtpForm] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-
-  const phoneForm = useForm<z.infer<typeof phoneFormSchema>>({
-    resolver: zodResolver(phoneFormSchema),
-    defaultValues: {
-      phone: '',
-      platform: 'swiggy',
-    }
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState('login');
+  const [isLoading, setIsLoading] = useState(false);
+  const [connectedApps, setConnectedApps] = useState({
+    swiggy: false,
+    zomato: false,
+    uberEats: false
   });
-
-  const otpForm = useForm<z.infer<typeof otpFormSchema>>({
-    resolver: zodResolver(otpFormSchema),
-    defaultValues: {
-      otp: '',
+  
+  // Check if user is already logged in
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      if (userData.isLoggedIn) {
+        navigate('/');
+      }
     }
-  });
-
-  const onPhoneSubmit = async (data: z.infer<typeof phoneFormSchema>) => {
-    setIsLoggingIn(true);
+  }, [navigate]);
+  
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
     
-    // Simulate API call to send OTP
+    // Simulate API call with timeout
     setTimeout(() => {
-      toast({
-        title: "OTP Sent",
-        description: `A verification code has been sent to ${data.phone}`,
-      });
-      
-      setIsLoggingIn(false);
-      setShowOtpForm(true);
-    }, 1500);
-  };
-
-  const onOtpSubmit = async (data: z.infer<typeof otpFormSchema>) => {
-    setVerifyingOtp(true);
-    
-    // Simulate API call to verify OTP and login
-    setTimeout(() => {
-      // Store login info in localStorage
-      localStorage.setItem('user', JSON.stringify({
-        phone: phoneForm.getValues('phone'),
-        platform: phoneForm.getValues('platform'),
-        isLoggedIn: true,
-        timestamp: new Date().toISOString()
-      }));
-      
-      toast({
-        title: "Login Successful",
-        description: `You're now logged in to ${phoneForm.getValues('platform').charAt(0).toUpperCase() + phoneForm.getValues('platform').slice(1)}`,
-      });
-      
-      setVerifyingOtp(false);
-      navigate('/');
-    }, 1500);
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-food-orange">Connect Food Platforms</h1>
-        <p className="text-food-gray text-center mb-8">
-          Link your food delivery accounts to compare real-time prices and offers
-        </p>
+      // Demo login - in a real app we would validate credentials
+      if (email && password) {
+        // Create connected apps array based on checkbox selections
+        const appConnections = [
+          { platform: 'Swiggy', isConnected: connectedApps.swiggy, lastSync: new Date() },
+          { platform: 'Zomato', isConnected: connectedApps.zomato, lastSync: new Date() },
+          { platform: 'UberEats', isConnected: connectedApps.uberEats, lastSync: new Date() }
+        ];
         
-        {!showOtpForm ? (
-          <Form {...phoneForm}>
-            <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-6">
-              <FormField
-                control={phoneForm.control}
-                name="platform"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Platform</FormLabel>
-                    <div className="flex gap-4 pt-2">
-                      {["swiggy", "zomato", "ubereats"].map((platform) => (
-                        <div 
-                          key={platform}
-                          onClick={() => field.onChange(platform)}
-                          className={`flex-1 p-3 border rounded-md text-center cursor-pointer transition-all ${
-                            field.value === platform 
-                              ? "border-food-orange bg-food-orange/10 text-food-orange" 
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <p className="font-medium capitalize">{platform}</p>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            ~$15-18
+        // Save login state to localStorage
+        localStorage.setItem('user', JSON.stringify({
+          email,
+          isLoggedIn: true,
+          timestamp: new Date(),
+          connectedApps: appConnections
+        }));
+        
+        toast({
+          title: "Login successful",
+          description: "Welcome back!",
+        });
+        
+        // Redirect to home page
+        navigate('/');
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Please enter your email and password",
+          variant: "destructive",
+        });
+      }
+      
+      setIsLoading(false);
+    }, 1500);
+  };
+  
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      if (email && password) {
+        // Save login state to localStorage (same as login for demo)
+        localStorage.setItem('user', JSON.stringify({
+          email,
+          isLoggedIn: true,
+          timestamp: new Date(),
+          connectedApps: [] // New accounts have no connected apps
+        }));
+        
+        toast({
+          title: "Account created",
+          description: "Welcome to BiteCompare!",
+        });
+        
+        // Redirect to home page
+        navigate('/');
+      } else {
+        toast({
+          title: "Signup failed",
+          description: "Please fill all required fields",
+          variant: "destructive",
+        });
+      }
+      
+      setIsLoading(false);
+    }, 1500);
+  };
+  
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      
+      <main className="flex-grow flex items-center justify-center bg-gray-50 py-12">
+        <div className="container px-4 md:px-6">
+          <div className="mx-auto max-w-md space-y-6">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold">Welcome to <span className="text-food-orange">BiteCompare</span></h1>
+              <p className="text-gray-500 mt-2">Compare food delivery prices across platforms</p>
+            </div>
+            
+            <Card>
+              <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="login">Login</TabsTrigger>
+                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="login">
+                  <form onSubmit={handleLogin}>
+                    <CardHeader>
+                      <CardTitle>Login</CardTitle>
+                      <CardDescription>Enter your credentials to access your account</CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          placeholder="Enter your email" 
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <Label htmlFor="password">Password</Label>
+                          <a href="#" className="text-sm text-food-orange">Forgot password?</a>
+                        </div>
+                        <Input 
+                          id="password" 
+                          type="password" 
+                          placeholder="Enter your password" 
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Connect your food delivery accounts</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="swiggy" 
+                              checked={connectedApps.swiggy}
+                              onCheckedChange={(checked) => 
+                                setConnectedApps({...connectedApps, swiggy: !!checked})
+                              }
+                            />
+                            <label 
+                              htmlFor="swiggy" 
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Swiggy
+                            </label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="zomato" 
+                              checked={connectedApps.zomato}
+                              onCheckedChange={(checked) => 
+                                setConnectedApps({...connectedApps, zomato: !!checked})
+                              }
+                            />
+                            <label 
+                              htmlFor="zomato" 
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Zomato
+                            </label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="uberEats" 
+                              checked={connectedApps.uberEats}
+                              onCheckedChange={(checked) => 
+                                setConnectedApps({...connectedApps, uberEats: !!checked})
+                              }
+                            />
+                            <label 
+                              htmlFor="uberEats" 
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              UberEats
+                            </label>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={phoneForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <div className="flex items-center">
-                        <div className="mr-2 text-muted-foreground">
-                          <Phone size={18} />
-                        </div>
-                        <Input placeholder="Enter your phone number" {...field} />
                       </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button 
-                type="submit" 
-                className={`w-full bg-food-orange hover:bg-food-orange/90 ${isLoggingIn ? 'opacity-70' : ''}`}
-                disabled={isLoggingIn}
-              >
-                {isLoggingIn ? (
-                  <span className="flex items-center">
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Sending OTP...
-                  </span>
-                ) : "Send Verification Code"}
-              </Button>
-            </form>
-          </Form>
-        ) : (
-          <Form {...otpForm}>
-            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-6">
-              <FormField
-                control={otpForm.control}
-                name="otp"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Enter Verification Code</FormLabel>
-                    <FormControl>
-                      <InputOTP maxLength={4} {...field}>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={0} />
-                          <InputOTPSlot index={1} />
-                          <InputOTPSlot index={2} />
-                          <InputOTPSlot index={3} />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex flex-col space-y-2">
-                <Button 
-                  type="submit" 
-                  className={`w-full bg-food-orange hover:bg-food-orange/90 ${verifyingOtp ? 'opacity-70' : ''}`}
-                  disabled={verifyingOtp}
-                >
-                  {verifyingOtp ? (
-                    <span className="flex items-center">
-                      <Loader className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </span>
-                  ) : "Verify & Login"}
-                </Button>
+                    </CardContent>
+                    
+                    <CardFooter>
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-food-orange hover:bg-food-orange/90"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Signing in..." : "Sign In"}
+                      </Button>
+                    </CardFooter>
+                  </form>
+                </TabsContent>
                 
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowOtpForm(false)}
-                  disabled={verifyingOtp}
+                <TabsContent value="signup">
+                  <form onSubmit={handleSignup}>
+                    <CardHeader>
+                      <CardTitle>Create an account</CardTitle>
+                      <CardDescription>Enter your details to create a new account</CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email">Email</Label>
+                        <Input 
+                          id="signup-email" 
+                          type="email" 
+                          placeholder="Enter your email" 
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-password">Password</Label>
+                        <Input 
+                          id="signup-password" 
+                          type="password" 
+                          placeholder="Create a password" 
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="terms" className="text-sm flex items-start space-x-2">
+                          <Checkbox id="terms" />
+                          <span>
+                            I agree to the 
+                            <a href="#" className="text-food-orange mx-1">Terms of Service</a>
+                            and
+                            <a href="#" className="text-food-orange mx-1">Privacy Policy</a>
+                          </span>
+                        </Label>
+                      </div>
+                    </CardContent>
+                    
+                    <CardFooter>
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-food-orange hover:bg-food-orange/90"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Creating Account..." : "Create Account"}
+                      </Button>
+                    </CardFooter>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </Card>
+            
+            <div className="text-center text-sm text-gray-500">
+              <p>
+                {activeTab === 'login' ? "Don't have an account? " : "Already have an account? "}
+                <button 
+                  onClick={() => setActiveTab(activeTab === 'login' ? 'signup' : 'login')}
+                  className="text-food-orange hover:underline"
                 >
-                  Back to Phone Entry
-                </Button>
-              </div>
-            </form>
-          </Form>
-        )}
-        
-        <div className="mt-8 pt-6 border-t text-center text-sm text-food-gray">
-          <p>This is a demonstration app. In a production version, you would connect with the actual APIs of these food delivery platforms.</p>
+                  {activeTab === 'login' ? "Sign up" : "Sign in"}
+                </button>
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
+      
+      <Footer />
     </div>
   );
 };

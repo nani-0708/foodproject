@@ -10,10 +10,21 @@ interface PriceUpdate {
   discountCode?: string;
 }
 
+interface ConnectedApp {
+  platform: string;
+  isConnected: boolean;
+  lastSync?: Date;
+}
+
 export function useRealTimePrices(initialPrices: any[]) {
   const [prices, setPrices] = useState(initialPrices);
   const [updates, setUpdates] = useState<PriceUpdate[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [connectedApps, setConnectedApps] = useState<ConnectedApp[]>([
+    { platform: 'Swiggy', isConnected: false },
+    { platform: 'Zomato', isConnected: false },
+    { platform: 'UberEats', isConnected: false }
+  ]);
 
   // Check if user is logged in
   useEffect(() => {
@@ -27,6 +38,26 @@ export function useRealTimePrices(initialPrices: any[]) {
       
       if (hoursElapsed < 24 && userData.isLoggedIn) {
         setIsLoggedIn(true);
+        
+        // If user has connected apps, update the state
+        if (userData.connectedApps && Array.isArray(userData.connectedApps)) {
+          setConnectedApps(userData.connectedApps);
+        } else {
+          // Simulate that the user has connected all apps when logged in
+          const updatedApps = connectedApps.map(app => ({
+            ...app,
+            isConnected: true,
+            lastSync: new Date()
+          }));
+          
+          setConnectedApps(updatedApps);
+          
+          // Update localStorage to include connected apps
+          localStorage.setItem('user', JSON.stringify({
+            ...userData,
+            connectedApps: updatedApps
+          }));
+        }
       } else {
         // Clear expired login
         localStorage.removeItem('user');
@@ -36,8 +67,10 @@ export function useRealTimePrices(initialPrices: any[]) {
 
   // Initialize prices state when initialPrices changes
   useEffect(() => {
-    setPrices(initialPrices);
-  }, [initialPrices]); // Use the initialPrices directly, React will compare arrays by reference
+    if (initialPrices.length > 0) {
+      setPrices(initialPrices);
+    }
+  }, [initialPrices]); // Use the initialPrices directly
 
   // Simulate real-time price updates
   useEffect(() => {
@@ -50,8 +83,19 @@ export function useRealTimePrices(initialPrices: any[]) {
       
       if (!randomItem?.pricingOptions) return;
       
-      const randomPlatformIndex = Math.floor(Math.random() * randomItem.pricingOptions.length);
-      const randomPlatform = randomItem.pricingOptions[randomPlatformIndex];
+      // Only use platforms that the user has connected
+      const connectedPlatformNames = connectedApps
+        .filter(app => app.isConnected)
+        .map(app => app.platform);
+      
+      const availablePlatforms = randomItem.pricingOptions.filter(
+        (option: any) => connectedPlatformNames.includes(option.platform)
+      );
+      
+      if (availablePlatforms.length === 0) return;
+      
+      const randomPlatformIndex = Math.floor(Math.random() * availablePlatforms.length);
+      const randomPlatform = availablePlatforms[randomPlatformIndex];
       
       if (!randomPlatform) return;
       
@@ -102,9 +146,9 @@ export function useRealTimePrices(initialPrices: any[]) {
     }, 15000); // Update every 15 seconds
     
     return () => clearInterval(interval);
-  }, [isLoggedIn, prices.length]); // Only depend on isLoggedIn and the length of prices array, not the entire prices array
+  }, [isLoggedIn, prices.length, connectedApps]); // Add connectedApps as dependency
 
-  return { prices, updates, isLoggedIn };
+  return { prices, updates, isLoggedIn, connectedApps };
 }
 
 // Helper function to generate a random discount code
