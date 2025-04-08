@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useRealTimePrices } from '@/hooks/use-real-time-prices';
 
 interface FoodItemPricing {
   platform: string;
@@ -38,17 +39,8 @@ const FoodCard = ({
 }: FoodCardProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isLoggedIn, connectedApps } = useRealTimePrices([]);
   const [priceUpdates, setPriceUpdates] = useState<Record<string, { isNew: boolean, increased?: boolean }>>({});
-  
-  // Check if user is logged in
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setIsLoggedIn(userData.isLoggedIn);
-    }
-  }, []);
   
   // Track price changes for animations
   useEffect(() => {
@@ -73,13 +65,23 @@ const FoodCard = ({
     return () => clearTimeout(timer);
   }, [pricingOptions]);
   
-  // Find the lowest priced option
-  const cheapestOption = [...pricingOptions].sort((a, b) => a.price - b.price)[0];
+  // Get a list of platforms that the user has connected
+  const connectedPlatformNames = connectedApps
+    .filter(app => app.isConnected)
+    .map(app => app.platform);
+  
+  // Filter pricing options to only show connected platforms when logged in
+  const visiblePricingOptions = isLoggedIn
+    ? pricingOptions.filter(option => connectedPlatformNames.includes(option.platform))
+    : pricingOptions;
+  
+  // Find the lowest priced option among visible options
+  const cheapestOption = [...visiblePricingOptions].sort((a, b) => a.price - b.price)[0];
   
   // Handle redirect to the respective app
   const handleOrderNow = (platform: string) => {
     if (!isLoggedIn) {
-      navigate('/login');
+      navigate('/login', { state: { redirectTo: `/restaurant/${id}` } });
       return;
     }
     
@@ -138,73 +140,82 @@ const FoodCard = ({
             )}
           </div>
           
-          <div className="space-y-2">
-            {pricingOptions.map((option, index) => (
-              <div 
-                key={index} 
-                className="flex justify-between items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer relative overflow-hidden" 
-                onClick={() => handleOrderNow(option.platform)}
-              >
-                {priceUpdates[option.platform]?.isNew && (
-                  <div className="absolute inset-0 bg-yellow-100 opacity-30 animate-pulse" />
-                )}
-                
-                <div className="flex items-center">
-                  <img 
-                    src={`/placeholder.svg`} 
-                    alt={option.platform} 
-                    className="w-6 h-6 mr-2"
-                  />
-                  <span className="font-medium">{option.platform}</span>
-                </div>
-                
-                <div className="flex items-center space-x-4">
+          {isLoggedIn && visiblePricingOptions.length === 0 ? (
+            <div className="p-4 text-center bg-amber-50 rounded-md">
+              <p className="text-amber-600">No connected food apps available for this restaurant.</p>
+              <p className="text-sm text-amber-600 mt-1">Go to settings to connect your accounts.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {visiblePricingOptions.map((option, index) => (
+                <div 
+                  key={index} 
+                  className="flex justify-between items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer relative overflow-hidden" 
+                  onClick={() => handleOrderNow(option.platform)}
+                >
+                  {priceUpdates[option.platform]?.isNew && (
+                    <div className="absolute inset-0 bg-yellow-100 opacity-30 animate-pulse" />
+                  )}
+                  
                   <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1 text-food-gray" />
-                    <span className="text-sm">{option.estimatedTime} min</span>
+                    <img 
+                      src={`/placeholder.svg`} 
+                      alt={option.platform} 
+                      className="w-6 h-6 mr-2"
+                    />
+                    <span className="font-medium">{option.platform}</span>
                   </div>
                   
-                  <div className={`font-bold flex items-center ${
-                    priceUpdates[option.platform]?.isNew 
-                      ? priceUpdates[option.platform]?.increased 
-                        ? "text-red-500" 
-                        : "text-green-500"
-                      : "text-food-orange"
-                  }`}>
-                    {priceUpdates[option.platform]?.isNew && priceUpdates[option.platform]?.increased && (
-                      <ArrowUp className="h-3 w-3 mr-1" />
-                    )}
-                    {priceUpdates[option.platform]?.isNew && !priceUpdates[option.platform]?.increased && (
-                      <ArrowDown className="h-3 w-3 mr-1" />
-                    )}
-                    ${option.price.toFixed(2)}
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1 text-food-gray" />
+                      <span className="text-sm">{option.estimatedTime} min</span>
+                    </div>
+                    
+                    <div className={`font-bold flex items-center ${
+                      priceUpdates[option.platform]?.isNew 
+                        ? priceUpdates[option.platform]?.increased 
+                          ? "text-red-500" 
+                          : "text-green-500"
+                        : "text-food-orange"
+                    }`}>
+                      {priceUpdates[option.platform]?.isNew && priceUpdates[option.platform]?.increased && (
+                        <ArrowUp className="h-3 w-3 mr-1" />
+                      )}
+                      {priceUpdates[option.platform]?.isNew && !priceUpdates[option.platform]?.increased && (
+                        <ArrowDown className="h-3 w-3 mr-1" />
+                      )}
+                      ${option.price.toFixed(2)}
+                    </div>
                   </div>
+                  
+                  {option.discountCode && isLoggedIn && (
+                    <Badge className="absolute top-0 right-0 bg-green-500 text-xs transform translate-x-1/4 -translate-y-1/4 py-0 px-1">
+                      Deal
+                    </Badge>
+                  )}
                 </div>
-                
-                {option.discountCode && isLoggedIn && (
-                  <Badge className="absolute top-0 right-0 bg-green-500 text-xs transform translate-x-1/4 -translate-y-1/4 py-0 px-1">
-                    Deal
-                  </Badge>
+              ))}
+            </div>
+          )}
+          
+          {cheapestOption && (
+            <div className="mt-4 flex justify-between items-center">
+              <div className="text-sm text-food-gray">
+                <span className="font-medium">Best price on {cheapestOption.platform}</span>
+                {cheapestOption.discountCode && isLoggedIn && (
+                  <div className="text-xs">Use code: <span className="font-bold">{cheapestOption.discountCode}</span></div>
                 )}
               </div>
-            ))}
-          </div>
-          
-          <div className="mt-4 flex justify-between items-center">
-            <div className="text-sm text-food-gray">
-              <span className="font-medium">Best price on {cheapestOption.platform}</span>
-              {cheapestOption.discountCode && isLoggedIn && (
-                <div className="text-xs">Use code: <span className="font-bold">{cheapestOption.discountCode}</span></div>
-              )}
+              
+              <Button 
+                className="bg-food-orange hover:bg-food-orange/90"
+                onClick={() => handleOrderNow(cheapestOption.platform)}
+              >
+                Order Now
+              </Button>
             </div>
-            
-            <Button 
-              className="bg-food-orange hover:bg-food-orange/90"
-              onClick={() => handleOrderNow(cheapestOption.platform)}
-            >
-              Order Now
-            </Button>
-          </div>
+          )}
         </div>
       </div>
     </div>

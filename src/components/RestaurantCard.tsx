@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { MapPin, Clock, Star, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { useRealTimePrices } from '@/hooks/use-real-time-prices';
 
 interface RestaurantProps {
   id: string;
@@ -13,7 +14,7 @@ interface RestaurantProps {
   deliveryTime: number;
   distance: string;
   platforms: string[];
-  showApproxPrices?: boolean; // Added the missing prop
+  showApproxPrices?: boolean;
 }
 
 const RestaurantCard = ({
@@ -25,26 +26,28 @@ const RestaurantCard = ({
   deliveryTime,
   distance,
   platforms,
-  showApproxPrices = false, // Default value of false
+  showApproxPrices = false,
 }: RestaurantProps) => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setIsLoggedIn(userData.isLoggedIn);
-    }
-  }, []);
+  const { isLoggedIn, connectedApps } = useRealTimePrices([]);
   
   const handleClick = () => {
     if (!isLoggedIn) {
-      navigate('/login');
+      navigate('/login', { state: { redirectTo: `/restaurant/${id}` } });
     } else {
       navigate(`/restaurant/${id}`);
     }
   };
+  
+  // Get a list of platforms that the user has connected
+  const connectedPlatforms = connectedApps
+    .filter(app => app.isConnected)
+    .map(app => app.platform);
+  
+  // Determine which platforms are actually available (both supported by restaurant and connected)
+  const availablePlatforms = isLoggedIn 
+    ? platforms.filter(platform => connectedPlatforms.includes(platform))
+    : platforms;
   
   return (
     <div className="food-card flex flex-col cursor-pointer hover:shadow-md transition-shadow" onClick={handleClick}>
@@ -90,19 +93,41 @@ const RestaurantCard = ({
         </div>
         
         <div className="mt-3 border-t pt-3">
-          <p className="text-sm text-food-gray mb-1">Available on:</p>
-          <div className="flex gap-2">
-            {platforms.map((platform, index) => (
-              <Badge key={index} variant="secondary" className="bg-gray-100 text-food-dark text-xs">
-                {platform}
-              </Badge>
-            ))}
-          </div>
+          <p className="text-sm text-food-gray mb-1">
+            {isLoggedIn ? "Connected app prices:" : "Available on:"}
+          </p>
+          
+          {availablePlatforms.length > 0 ? (
+            <div className="flex gap-2">
+              {availablePlatforms.map((platform, index) => (
+                <Badge 
+                  key={index} 
+                  variant="secondary" 
+                  className={`${isLoggedIn && connectedPlatforms.includes(platform) 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-gray-100 text-food-dark"} text-xs`}
+                >
+                  {platform}
+                </Badge>
+              ))}
+            </div>
+          ) : isLoggedIn ? (
+            <p className="text-xs text-amber-600">
+              Connect apps in settings to see prices
+            </p>
+          ) : null}
           
           {/* Display approximate prices if showApproxPrices is true */}
           {showApproxPrices && (
             <div className="mt-2 text-xs text-food-gray">
               <p>~$15-18</p>
+            </div>
+          )}
+          
+          {/* Show connection status message */}
+          {isLoggedIn && connectedPlatforms.length > 0 && (
+            <div className="mt-2 text-xs text-green-600">
+              Showing real-time prices from your connected accounts
             </div>
           )}
         </div>

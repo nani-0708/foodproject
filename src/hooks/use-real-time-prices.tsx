@@ -26,7 +26,7 @@ export function useRealTimePrices(initialPrices: any[]) {
     { platform: 'UberEats', isConnected: false }
   ]);
 
-  // Check if user is logged in
+  // Check if user is logged in and get connected apps status
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (user) {
@@ -63,45 +63,156 @@ export function useRealTimePrices(initialPrices: any[]) {
         localStorage.removeItem('user');
       }
     }
-  }, []); // Only run once on mount
+  }, []); 
 
   // Initialize prices state when initialPrices changes
   useEffect(() => {
     if (initialPrices.length > 0) {
       setPrices(initialPrices);
     }
-  }, [initialPrices]); // Use the initialPrices directly
+  }, [initialPrices]);
+
+  // Connect an app
+  const connectApp = (platform: string) => {
+    const updatedApps = connectedApps.map(app => 
+      app.platform === platform ? { ...app, isConnected: true, lastSync: new Date() } : app
+    );
+    
+    setConnectedApps(updatedApps);
+    
+    // Update localStorage
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      localStorage.setItem('user', JSON.stringify({
+        ...userData,
+        connectedApps: updatedApps
+      }));
+    }
+    
+    // Simulate fetching new data from the connected platform
+    simulatePriceUpdatesFromPlatform(platform);
+  };
+  
+  // Disconnect an app
+  const disconnectApp = (platform: string) => {
+    const updatedApps = connectedApps.map(app => 
+      app.platform === platform ? { ...app, isConnected: false, lastSync: undefined } : app
+    );
+    
+    setConnectedApps(updatedApps);
+    
+    // Update localStorage
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      localStorage.setItem('user', JSON.stringify({
+        ...userData,
+        connectedApps: updatedApps
+      }));
+    }
+  };
+  
+  // Simulate fetching price updates from a specific platform
+  const simulatePriceUpdatesFromPlatform = (platform: string) => {
+    if (!isLoggedIn || prices.length === 0) return;
+    
+    // Create 2-3 random updates from the specified platform
+    const numUpdates = Math.floor(Math.random() * 2) + 2; // 2-3 updates
+    const updates: PriceUpdate[] = [];
+    
+    for (let i = 0; i < numUpdates; i++) {
+      const randomItemIndex = Math.floor(Math.random() * prices.length);
+      const randomItem = prices[randomItemIndex];
+      
+      if (!randomItem?.pricingOptions) continue;
+      
+      const platformOption = randomItem.pricingOptions.find(
+        (option: any) => option.platform === platform
+      );
+      
+      if (!platformOption) continue;
+      
+      // Generate a random price change (small fluctuation)
+      const priceChange = (Math.random() * 2 - 1) * 2; // Between -2 and +2
+      const oldPrice = platformOption.price;
+      const newPrice = Math.max(0.99, oldPrice + priceChange).toFixed(2);
+      
+      // Random chance for a discount
+      const hasDiscount = Math.random() > 0.7;
+      const discountCode = hasDiscount ? generateDiscountCode() : undefined;
+      
+      // Create the update
+      const update: PriceUpdate = {
+        itemId: randomItem.id,
+        platform: platform,
+        oldPrice: oldPrice,
+        newPrice: parseFloat(newPrice),
+        hasDiscount,
+        discountCode
+      };
+      
+      updates.push(update);
+    }
+    
+    // Update prices
+    setPrices(currentPrices => {
+      return currentPrices.map(item => {
+        const itemUpdate = updates.find(u => u.itemId === item.id);
+        if (itemUpdate) {
+          return {
+            ...item,
+            pricingOptions: item.pricingOptions.map((option: any) => {
+              if (option.platform === itemUpdate.platform) {
+                return {
+                  ...option,
+                  price: itemUpdate.newPrice,
+                  discountCode: itemUpdate.discountCode
+                };
+              }
+              return option;
+            })
+          };
+        }
+        return item;
+      });
+    });
+    
+    // Add the updates to the list of recent updates
+    setUpdates(prev => [...updates, ...prev].slice(0, 5));
+  };
 
   // Simulate real-time price updates
   useEffect(() => {
     if (!isLoggedIn || prices.length === 0) return;
 
     const interval = setInterval(() => {
-      // Randomly select an item and platform to update
-      const randomItemIndex = Math.floor(Math.random() * prices.length);
-      const randomItem = prices[randomItemIndex];
-      
-      if (!randomItem?.pricingOptions) return;
-      
       // Only use platforms that the user has connected
       const connectedPlatformNames = connectedApps
         .filter(app => app.isConnected)
         .map(app => app.platform);
       
-      const availablePlatforms = randomItem.pricingOptions.filter(
-        (option: any) => connectedPlatformNames.includes(option.platform)
+      if (connectedPlatformNames.length === 0) return;
+      
+      // Randomly select a connected platform
+      const randomPlatformIndex = Math.floor(Math.random() * connectedPlatformNames.length);
+      const randomPlatform = connectedPlatformNames[randomPlatformIndex];
+      
+      // Randomly select an item
+      const randomItemIndex = Math.floor(Math.random() * prices.length);
+      const randomItem = prices[randomItemIndex];
+      
+      if (!randomItem?.pricingOptions) return;
+      
+      const platformOption = randomItem.pricingOptions.find(
+        (option: any) => option.platform === randomPlatform
       );
       
-      if (availablePlatforms.length === 0) return;
-      
-      const randomPlatformIndex = Math.floor(Math.random() * availablePlatforms.length);
-      const randomPlatform = availablePlatforms[randomPlatformIndex];
-      
-      if (!randomPlatform) return;
+      if (!platformOption) return;
       
       // Generate a random price change (small fluctuation)
       const priceChange = (Math.random() * 2 - 1) * 2; // Between -2 and +2
-      const oldPrice = randomPlatform.price;
+      const oldPrice = platformOption.price;
       const newPrice = Math.max(0.99, oldPrice + priceChange).toFixed(2);
       
       // Random chance for a discount
@@ -111,7 +222,7 @@ export function useRealTimePrices(initialPrices: any[]) {
       // Create the update
       const update: PriceUpdate = {
         itemId: randomItem.id,
-        platform: randomPlatform.platform,
+        platform: randomPlatform,
         oldPrice: oldPrice,
         newPrice: parseFloat(newPrice),
         hasDiscount,
@@ -125,7 +236,7 @@ export function useRealTimePrices(initialPrices: any[]) {
             return {
               ...item,
               pricingOptions: item.pricingOptions.map((option: any) => {
-                if (option.platform === randomPlatform.platform) {
+                if (option.platform === randomPlatform) {
                   return {
                     ...option,
                     price: parseFloat(newPrice),
@@ -146,9 +257,17 @@ export function useRealTimePrices(initialPrices: any[]) {
     }, 15000); // Update every 15 seconds
     
     return () => clearInterval(interval);
-  }, [isLoggedIn, prices.length, connectedApps]); // Add connectedApps as dependency
+  }, [isLoggedIn, prices, connectedApps]);
 
-  return { prices, updates, isLoggedIn, connectedApps };
+  return { 
+    prices, 
+    updates, 
+    isLoggedIn, 
+    connectedApps, 
+    connectApp, 
+    disconnectApp, 
+    simulatePriceUpdatesFromPlatform 
+  };
 }
 
 // Helper function to generate a random discount code

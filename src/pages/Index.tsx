@@ -17,7 +17,7 @@ const Index = () => {
   const [activePlatforms, setActivePlatforms] = useState<string[]>(["Swiggy", "Zomato", "UberEats"]);
   const [filteredRestaurants, setFilteredRestaurants] = useState(restaurants);
   const { toast } = useToast();
-  const { isLoggedIn } = useRealTimePrices([]);
+  const { isLoggedIn, connectedApps } = useRealTimePrices([]);
   
   // Simulate loading
   useEffect(() => {
@@ -74,6 +74,15 @@ const Index = () => {
             return distA - distB;
           });
           break;
+        case "price_low":
+          // For this one, we'd ideally use real price data
+          // For now, we'll just use a random sort
+          sortedItems.sort(() => Math.random() - 0.5);
+          break;
+        case "price_high":
+          // Same as above but reversed
+          sortedItems.sort(() => Math.random() - 0.5).reverse();
+          break;
         default:
           break;
       }
@@ -108,17 +117,32 @@ const Index = () => {
     
     setActivePlatforms(updatedPlatforms);
     
+    // If logged in, filter based on connected platforms as well
+    const activePlatformsToUse = isLoggedIn 
+      ? updatedPlatforms.filter(p => 
+          connectedApps.some(app => app.platform === p && app.isConnected)
+        )
+      : updatedPlatforms;
+    
     // Simulate API call delay
     setTimeout(() => {
       // Filter restaurants based on selected platforms
       const filteredRest = restaurants.filter(restaurant => 
         restaurant.platforms.some(platform => 
-          updatedPlatforms.includes(platform)
+          activePlatformsToUse.includes(platform)
         )
       );
       
       setFilteredRestaurants(filteredRest);
       setLoading(false);
+      
+      if (isLoggedIn && activePlatformsToUse.length === 0) {
+        toast({
+          title: "No Connected Apps",
+          description: "You need to connect apps to see their prices",
+          variant: "default",
+        });
+      }
     }, 500);
   };
 
@@ -138,10 +162,22 @@ const Index = () => {
             
             <SearchBar onSearch={handleSearch} />
             
-            {!isLoggedIn && (
+            {!isLoggedIn ? (
               <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 rounded-md max-w-md mx-auto">
                 <p className="text-sm">
                   <strong>Login required:</strong> Connect your food delivery accounts to see real-time prices and offers.
+                </p>
+              </div>
+            ) : connectedApps.filter(app => app.isConnected).length === 0 ? (
+              <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md max-w-md mx-auto">
+                <p className="text-sm">
+                  <strong>Connect your accounts:</strong> Link your food delivery apps to compare prices.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-md max-w-md mx-auto">
+                <p className="text-sm">
+                  <strong>Connected:</strong> Showing real-time prices from {connectedApps.filter(app => app.isConnected).length} food delivery platforms.
                 </p>
               </div>
             )}
@@ -168,7 +204,7 @@ const Index = () => {
                   <RestaurantCard 
                     key={restaurant.id} 
                     {...restaurant} 
-                    showApproxPrices={true}
+                    showApproxPrices={!isLoggedIn}
                   />
                 ))}
               </div>
