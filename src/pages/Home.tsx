@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // Add this import
 import { fetchSwiggyRestaurants } from "@/api/swiggy";
 import { fetchZomatoRestaurants } from "@/api/zomatoMock";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const Home = () => {
+  const navigate = useNavigate(); // Add this line
   const { coords, loading: locationLoading, error: locationError } = useLocation();
   const [swiggyRestaurants, setSwiggyRestaurants] = useState<any[]>([]);
   const [zomatoRestaurants, setZomatoRestaurants] = useState<any[]>([]);
