@@ -8,6 +8,7 @@ type LocationState = {
     latitude: number;
     longitude: number;
   } | null;
+  city?: string | null;
 };
 
 export const useLocation = () => {
@@ -15,6 +16,7 @@ export const useLocation = () => {
     loading: true,
     error: null,
     coords: null,
+    city: null,
   });
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export const useLocation = () => {
     const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
     const customLat = localStorage.getItem('customLat');
     const customLng = localStorage.getItem('customLng');
+    const customCity = localStorage.getItem('customCity');
     
     if (useCustomLocation && customLat && customLng) {
       // Use custom location from settings
@@ -37,6 +40,7 @@ export const useLocation = () => {
           loading: false,
           error: null,
           coords: { latitude, longitude },
+          city: customCity || null
         });
         return; // Exit early, no need to request browser geolocation
       } catch (error) {
@@ -71,6 +75,7 @@ export const useLocation = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           },
+          city: null // We don't know the city name from the coordinates without reverse geocoding
         });
       },
       (error) => {

@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // Add this import
+import { useNavigate } from "react-router-dom";
 import { fetchSwiggyRestaurants } from "@/api/swiggy";
 import { fetchZomatoRestaurants } from "@/api/zomatoMock";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,8 +13,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const Home = () => {
-  const navigate = useNavigate(); // Add this line
-  const { coords, loading: locationLoading, error: locationError } = useLocation();
+  const navigate = useNavigate();
+  const { coords, loading: locationLoading, error: locationError, city } = useLocation();
   const [swiggyRestaurants, setSwiggyRestaurants] = useState<any[]>([]);
   const [zomatoRestaurants, setZomatoRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,9 +24,9 @@ const Home = () => {
 
   const defaultLat = "17.385044";
   const defaultLng = "78.486671";
+  const defaultCity = "Hyderabad";
 
   const refreshLocation = () => {
-    // Reload the page to trigger location access again
     window.location.reload();
   };
 
@@ -36,39 +35,43 @@ const Home = () => {
       try {
         setLoading(true);
         
-        // Check if custom location is set in localStorage
         const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
         const customLat = localStorage.getItem('customLat');
         const customLng = localStorage.getItem('customLng');
+        const customCity = localStorage.getItem('customCity');
         
         let latitude: string;
         let longitude: string;
+        let locationName: string;
         
         if (useCustomLocation && customLat && customLng) {
-          // Use custom location from settings
           latitude = customLat;
           longitude = customLng;
+          locationName = customCity || "Custom Location";
+          
           toast({
-            title: "Using custom location",
-            description: `Latitude: ${latitude.substring(0, 8)}, Longitude: ${longitude.substring(0, 8)}`,
+            title: `Using ${locationName}`,
+            description: "Showing restaurants based on your selected location",
             duration: 3000,
           });
         } else if (coords) {
-          // Use browser geolocation
           latitude = coords.latitude.toString();
           longitude = coords.longitude.toString();
+          locationName = "Current Location";
+          
           toast({
             title: "Using your current location",
-            description: `Latitude: ${latitude.substring(0, 8)}, Longitude: ${longitude.substring(0, 8)}`,
+            description: "Showing nearby restaurants based on your device location",
             duration: 3000,
           });
         } else {
-          // Fall back to default location
           latitude = defaultLat;
           longitude = defaultLng;
+          locationName = defaultCity;
+          
           toast({
-            title: "Using default location",
-            description: "Could not access your location. Using Hyderabad, India",
+            title: `Using ${defaultCity}`,
+            description: "Could not access your location. Using default city instead.",
             duration: 3000,
           });
         }
@@ -94,13 +97,23 @@ const Home = () => {
     }
   }, [coords, locationLoading, locationError, toast]);
 
-  // Filter restaurants by price range
+  const getLocationSource = () => {
+    const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
+    const customCity = localStorage.getItem('customCity');
+    
+    if (useCustomLocation && customCity) {
+      return `Using your selected location: ${customCity}`;
+    } else if (coords) {
+      return "Using your current device location";
+    } else {
+      return `Using default location: ${defaultCity}, India`;
+    }
+  };
+
   const filterByPrice = (restaurants: any[], range: string) => {
     if (range === "all") return restaurants;
     
-    // For demo purposes, we'll use a simple random assignment of price categories
     return restaurants.filter((restaurant) => {
-      // Use the last digit of the ID to assign a price category (simulating price ranges)
       const id = restaurant.id || "";
       const lastDigit = parseInt(id.toString().slice(-1)) || 0;
       
@@ -116,28 +129,12 @@ const Home = () => {
   const filteredSwiggyRestaurants = filterByPrice(swiggyRestaurants, priceRange);
   const filteredZomatoRestaurants = filterByPrice(zomatoRestaurants, priceRange);
 
-  // Get the location source description
-  const getLocationSource = () => {
-    const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
-    const customLat = localStorage.getItem('customLat');
-    const customLng = localStorage.getItem('customLng');
-    
-    if (useCustomLocation && customLat && customLng) {
-      return "Using your custom location from settings";
-    } else if (coords) {
-      return "Using your current device location";
-    } else {
-      return "Using default location: Hyderabad, India";
-    }
-  };
-
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <div className="p-6 flex-grow">
         <h1 className="text-3xl font-bold mb-4 text-center">Restaurant Comparison</h1>
         
-        {/* Location and Price Filter Controls */}
         <div className="mb-6 bg-gray-50 p-4 rounded-lg">
           {locationError && !(localStorage.getItem('useCustomLocation') === 'true') ? (
             <div className="bg-yellow-50 p-4 mb-4 rounded-lg flex items-center justify-between">
@@ -183,7 +180,6 @@ const Home = () => {
             </div>
           )}
           
-          {/* Price Range Filter */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-2">
             <span className="text-gray-700 font-medium">Price Range:</span>
             <div className="flex gap-2">

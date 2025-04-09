@@ -11,6 +11,29 @@ import Footer from '@/components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { Check, Link, AlertCircle, MapPin, RefreshCw } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+// List of popular cities with their approximate coordinates
+const popularCities = [
+  { name: "New Delhi", lat: "28.6139", lng: "77.2090" },
+  { name: "Mumbai", lat: "19.0760", lng: "72.8777" },
+  { name: "Bangalore", lat: "12.9716", lng: "77.5946" },
+  { name: "Hyderabad", lat: "17.3850", lng: "78.4867" },
+  { name: "Chennai", lat: "13.0827", lng: "80.2707" },
+  { name: "Kolkata", lat: "22.5726", lng: "88.3639" },
+  { name: "Pune", lat: "18.5204", lng: "73.8567" },
+  { name: "Ahmedabad", lat: "23.0225", lng: "72.5714" },
+  { name: "Jaipur", lat: "26.9124", lng: "75.7873" },
+  { name: "Lucknow", lat: "26.8467", lng: "80.9462" }
+];
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -19,8 +42,8 @@ const Settings = () => {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const { coords, loading: locationLoading, error: locationError } = useLocation();
   const [useCustomLocation, setUseCustomLocation] = useState(false);
-  const [customLat, setCustomLat] = useState("");
-  const [customLng, setCustomLng] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [customCity, setCustomCity] = useState("");
   
   // Check if user is logged in
   useEffect(() => {
@@ -30,13 +53,21 @@ const Settings = () => {
       navigate('/login', { state: { redirectTo: '/settings' } });
     }
     
-    // Initialize custom location fields with saved values if they exist
-    const savedLat = localStorage.getItem('customLat');
-    const savedLng = localStorage.getItem('customLng');
+    // Initialize location settings with saved values if they exist
+    const savedCity = localStorage.getItem('customCity');
     const savedUseCustom = localStorage.getItem('useCustomLocation');
     
-    if (savedLat) setCustomLat(savedLat);
-    if (savedLng) setCustomLng(savedLng);
+    if (savedCity) {
+      // Check if it's one of our popular cities
+      const foundCity = popularCities.find(city => city.name === savedCity);
+      if (foundCity) {
+        setSelectedCity(savedCity);
+      } else {
+        setCustomCity(savedCity);
+        setSelectedCity("custom");
+      }
+    }
+    
     if (savedUseCustom) setUseCustomLocation(savedUseCustom === 'true');
   }, [navigate]);
   
@@ -71,27 +102,65 @@ const Settings = () => {
 
   const saveLocationPreferences = () => {
     if (useCustomLocation) {
-      // Validate custom coordinates
-      if (!customLat || !customLng || isNaN(Number(customLat)) || isNaN(Number(customLng))) {
+      // Validate city selection
+      if (selectedCity === "") {
         toast({
-          title: "Invalid Coordinates",
-          description: "Please enter valid latitude and longitude values.",
+          title: "No City Selected",
+          description: "Please select a city or enter a custom city name.",
           variant: "destructive"
         });
         return;
       }
       
+      let cityToSave: string;
+      let latToSave: string;
+      let lngToSave: string;
+      
+      if (selectedCity === "custom") {
+        if (!customCity.trim()) {
+          toast({
+            title: "Invalid City",
+            description: "Please enter a valid city name.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // For custom cities, we'll use a default coordinate (Hyderabad in this case)
+        // In a real app, you would use a geocoding API here
+        cityToSave = customCity.trim();
+        latToSave = "17.385044";
+        lngToSave = "78.486671";
+      } else {
+        // Get coordinates for the selected city
+        const cityData = popularCities.find(city => city.name === selectedCity);
+        if (!cityData) {
+          toast({
+            title: "City Not Found",
+            description: "Unable to find coordinates for the selected city.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        cityToSave = cityData.name;
+        latToSave = cityData.lat;
+        lngToSave = cityData.lng;
+      }
+      
       // Save custom location to localStorage
-      localStorage.setItem('customLat', customLat);
-      localStorage.setItem('customLng', customLng);
+      localStorage.setItem('customCity', cityToSave);
+      localStorage.setItem('customLat', latToSave);
+      localStorage.setItem('customLng', lngToSave);
       localStorage.setItem('useCustomLocation', 'true');
       
       toast({
-        title: "Custom Location Saved",
-        description: "Your location preferences have been updated.",
+        title: "Location Saved",
+        description: `Your location has been set to ${cityToSave}.`,
       });
     } else {
       // Remove custom location from localStorage and use browser's geolocation
+      localStorage.removeItem('customCity');
       localStorage.removeItem('customLat');
       localStorage.removeItem('customLng');
       localStorage.setItem('useCustomLocation', 'false');
@@ -101,6 +170,9 @@ const Settings = () => {
         description: "Your app will now use your device's location for restaurant searches.",
       });
     }
+    
+    // Navigate back to home to see results with new location
+    navigate('/home');
   };
   
   if (!isLoggedIn) {
@@ -139,7 +211,7 @@ const Settings = () => {
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Location Settings</h2>
             <p className="text-gray-500 mb-6">
-              Manage your location preferences for restaurant searches.
+              Choose your location for restaurant searches.
             </p>
             
             <Card>
@@ -188,7 +260,7 @@ const Settings = () => {
                     <div>
                       <div className="font-medium">Use Custom Location</div>
                       <p className="text-sm text-gray-500">
-                        Manually set a location instead of using your device location
+                        Select a city instead of using your device location
                       </p>
                     </div>
                     <Switch
@@ -198,27 +270,39 @@ const Settings = () => {
                   </div>
                   
                   {useCustomLocation && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+                    <div className="p-4 border rounded-lg space-y-4">
                       <div>
-                        <label className="text-sm font-medium block mb-1">Latitude</label>
-                        <input
-                          type="text"
-                          value={customLat}
-                          onChange={(e) => setCustomLat(e.target.value)}
-                          placeholder="e.g. 17.385044"
-                          className="w-full p-2 border rounded"
-                        />
+                        <label className="text-sm font-medium block mb-2">Select City</label>
+                        <Select
+                          value={selectedCity}
+                          onValueChange={(value) => setSelectedCity(value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a city" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {popularCities.map(city => (
+                              <SelectItem key={city.name} value={city.name}>
+                                {city.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="custom">Other (enter manually)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium block mb-1">Longitude</label>
-                        <input
-                          type="text"
-                          value={customLng}
-                          onChange={(e) => setCustomLng(e.target.value)}
-                          placeholder="e.g. 78.486671"
-                          className="w-full p-2 border rounded"
-                        />
-                      </div>
+                      
+                      {selectedCity === "custom" && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">Enter City Name</label>
+                          <Input
+                            type="text"
+                            value={customCity}
+                            onChange={(e) => setCustomCity(e.target.value)}
+                            placeholder="Enter city name"
+                            className="w-full"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
