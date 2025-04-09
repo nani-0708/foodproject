@@ -34,13 +34,39 @@ const Home = () => {
       try {
         setLoading(true);
         
-        const latitude = coords?.latitude.toString() || defaultLat;
-        const longitude = coords?.longitude.toString() || defaultLng;
+        // Check if custom location is set in localStorage
+        const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
+        const customLat = localStorage.getItem('customLat');
+        const customLng = localStorage.getItem('customLng');
         
-        if (coords) {
+        let latitude: string;
+        let longitude: string;
+        
+        if (useCustomLocation && customLat && customLng) {
+          // Use custom location from settings
+          latitude = customLat;
+          longitude = customLng;
+          toast({
+            title: "Using custom location",
+            description: `Latitude: ${latitude.substring(0, 8)}, Longitude: ${longitude.substring(0, 8)}`,
+            duration: 3000,
+          });
+        } else if (coords) {
+          // Use browser geolocation
+          latitude = coords.latitude.toString();
+          longitude = coords.longitude.toString();
           toast({
             title: "Using your current location",
             description: `Latitude: ${latitude.substring(0, 8)}, Longitude: ${longitude.substring(0, 8)}`,
+            duration: 3000,
+          });
+        } else {
+          // Fall back to default location
+          latitude = defaultLat;
+          longitude = defaultLng;
+          toast({
+            title: "Using default location",
+            description: "Could not access your location. Using Hyderabad, India",
             duration: 3000,
           });
         }
@@ -88,6 +114,21 @@ const Home = () => {
   const filteredSwiggyRestaurants = filterByPrice(swiggyRestaurants, priceRange);
   const filteredZomatoRestaurants = filterByPrice(zomatoRestaurants, priceRange);
 
+  // Get the location source description
+  const getLocationSource = () => {
+    const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
+    const customLat = localStorage.getItem('customLat');
+    const customLng = localStorage.getItem('customLng');
+    
+    if (useCustomLocation && customLat && customLng) {
+      return "Using your custom location from settings";
+    } else if (coords) {
+      return "Using your current device location";
+    } else {
+      return "Using default location: Hyderabad, India";
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -96,7 +137,7 @@ const Home = () => {
         
         {/* Location and Price Filter Controls */}
         <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-          {locationError ? (
+          {locationError && !(localStorage.getItem('useCustomLocation') === 'true') ? (
             <div className="bg-yellow-50 p-4 mb-4 rounded-lg flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="text-yellow-500" />
@@ -104,25 +145,39 @@ const Home = () => {
                   {locationError} - Using default location instead
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={refreshLocation}
-                className="flex items-center gap-1"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          ) : coords ? (
-            <div className="flex items-center justify-center mb-4 text-gray-600">
-              <MapPin className="mr-2" />
-              <span>Using your current location</span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshLocation}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Retry
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate('/settings')}
+                  className="flex items-center gap-1"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Set Custom Location
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-center mb-4 text-gray-600">
-              <AlertCircle className="mr-2 text-yellow-500" />
-              <span>Using default location: Hyderabad, India</span>
+              <MapPin className="mr-2" />
+              <span>{getLocationSource()}</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/settings')}
+                className="ml-2 text-food-orange"
+              >
+                Change
+              </Button>
             </div>
           )}
           

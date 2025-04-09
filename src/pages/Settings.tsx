@@ -5,16 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useRealTimePrices } from "@/hooks/use-real-time-prices";
+import { useLocation } from "@/hooks/use-location";
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useNavigate } from 'react-router-dom';
-import { Check, Link, AlertCircle } from 'lucide-react';
+import { Check, Link, AlertCircle, MapPin, RefreshCw } from 'lucide-react';
+import { Separator } from "@/components/ui/separator";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isLoggedIn, connectedApps, connectApp, disconnectApp } = useRealTimePrices([]);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
+  const { coords, loading: locationLoading, error: locationError } = useLocation();
+  const [useCustomLocation, setUseCustomLocation] = useState(false);
+  const [customLat, setCustomLat] = useState("");
+  const [customLng, setCustomLng] = useState("");
   
   // Check if user is logged in
   useEffect(() => {
@@ -23,6 +29,15 @@ const Settings = () => {
       // Redirect to login page if not logged in
       navigate('/login', { state: { redirectTo: '/settings' } });
     }
+    
+    // Initialize custom location fields with saved values if they exist
+    const savedLat = localStorage.getItem('customLat');
+    const savedLng = localStorage.getItem('customLng');
+    const savedUseCustom = localStorage.getItem('useCustomLocation');
+    
+    if (savedLat) setCustomLat(savedLat);
+    if (savedLng) setCustomLng(savedLng);
+    if (savedUseCustom) setUseCustomLocation(savedUseCustom === 'true');
   }, [navigate]);
   
   const handleToggleConnection = async (platform: string, isCurrentlyConnected: boolean) => {
@@ -45,6 +60,45 @@ const Settings = () => {
       toast({
         title: `${platform} Disconnected`,
         description: `Your ${platform} account has been disconnected.`,
+      });
+    }
+  };
+
+  const refreshLocation = () => {
+    // Reload the page to trigger location access again
+    window.location.reload();
+  };
+
+  const saveLocationPreferences = () => {
+    if (useCustomLocation) {
+      // Validate custom coordinates
+      if (!customLat || !customLng || isNaN(Number(customLat)) || isNaN(Number(customLng))) {
+        toast({
+          title: "Invalid Coordinates",
+          description: "Please enter valid latitude and longitude values.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Save custom location to localStorage
+      localStorage.setItem('customLat', customLat);
+      localStorage.setItem('customLng', customLng);
+      localStorage.setItem('useCustomLocation', 'true');
+      
+      toast({
+        title: "Custom Location Saved",
+        description: "Your location preferences have been updated.",
+      });
+    } else {
+      // Remove custom location from localStorage and use browser's geolocation
+      localStorage.removeItem('customLat');
+      localStorage.removeItem('customLng');
+      localStorage.setItem('useCustomLocation', 'false');
+      
+      toast({
+        title: "Using Device Location",
+        description: "Your app will now use your device's location for restaurant searches.",
       });
     }
   };
@@ -81,6 +135,109 @@ const Settings = () => {
         <div className="container px-4 md:px-6">
           <h1 className="text-3xl font-bold mb-8">Account Settings</h1>
           
+          {/* Location Settings */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Location Settings</h2>
+            <p className="text-gray-500 mb-6">
+              Manage your location preferences for restaurant searches.
+            </p>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Location Preferences</CardTitle>
+                <CardDescription>
+                  Choose how the app determines your location when displaying nearby restaurants.
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                {/* Current Location Status */}
+                <div className="p-4 rounded-lg bg-gray-100">
+                  <div className="font-medium mb-2">Current Location Status:</div>
+                  {locationLoading ? (
+                    <div className="flex items-center text-blue-600">
+                      <span className="mr-2 animate-pulse">Detecting your location...</span>
+                    </div>
+                  ) : locationError ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-yellow-600">
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        <span>{locationError}</span>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={refreshLocation} className="ml-4">
+                        <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                      </Button>
+                    </div>
+                  ) : coords ? (
+                    <div className="flex items-center text-green-600">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      <span>
+                        Location detected: {coords.latitude.toFixed(6)}, {coords.longitude.toFixed(6)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-yellow-600">
+                      Location status unknown
+                    </div>
+                  )}
+                </div>
+                
+                {/* Location Preference Toggle */}
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Use Custom Location</div>
+                      <p className="text-sm text-gray-500">
+                        Manually set a location instead of using your device location
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useCustomLocation}
+                      onCheckedChange={setUseCustomLocation}
+                    />
+                  </div>
+                  
+                  {useCustomLocation && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+                      <div>
+                        <label className="text-sm font-medium block mb-1">Latitude</label>
+                        <input
+                          type="text"
+                          value={customLat}
+                          onChange={(e) => setCustomLat(e.target.value)}
+                          placeholder="e.g. 17.385044"
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium block mb-1">Longitude</label>
+                        <input
+                          type="text"
+                          value={customLng}
+                          onChange={(e) => setCustomLng(e.target.value)}
+                          placeholder="e.g. 78.486671"
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+              
+              <CardFooter>
+                <Button 
+                  onClick={saveLocationPreferences}
+                  className="bg-food-orange hover:bg-food-orange/90"
+                >
+                  Save Location Preferences
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+          
+          <Separator className="my-8" />
+          
+          {/* Connected Apps Section */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Connected Food Delivery Accounts</h2>
             <p className="text-gray-500 mb-6">

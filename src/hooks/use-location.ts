@@ -18,6 +18,35 @@ export const useLocation = () => {
   });
 
   useEffect(() => {
+    // Check if we should use custom location from settings
+    const useCustomLocation = localStorage.getItem('useCustomLocation') === 'true';
+    const customLat = localStorage.getItem('customLat');
+    const customLng = localStorage.getItem('customLng');
+    
+    if (useCustomLocation && customLat && customLng) {
+      // Use custom location from settings
+      try {
+        const latitude = parseFloat(customLat);
+        const longitude = parseFloat(customLng);
+        
+        if (isNaN(latitude) || isNaN(longitude)) {
+          throw new Error("Invalid custom coordinates");
+        }
+        
+        setLocation({
+          loading: false,
+          error: null,
+          coords: { latitude, longitude },
+        });
+        return; // Exit early, no need to request browser geolocation
+      } catch (error) {
+        console.error("Error using custom location:", error);
+        // If custom location fails, fall back to browser geolocation
+        localStorage.removeItem('useCustomLocation');
+      }
+    }
+    
+    // If not using custom location or custom location failed, try browser geolocation
     if (!navigator.geolocation) {
       setLocation({
         loading: false,
@@ -69,7 +98,7 @@ export const useLocation = () => {
       },
       options
     );
-  }, []);
+  }, []); // The empty dependency array ensures this effect runs only once on mount
 
   return location;
 };
