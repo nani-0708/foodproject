@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, LogIn } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Search, LogIn, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Check if user is logged in
   const isLoggedIn = localStorage.getItem('user') !== null;
@@ -18,12 +19,17 @@ const Navbar = () => {
         </Link>
         
         <div className="hidden md:flex items-center space-x-6">
-          <Link to="/" className="text-food-dark hover:text-food-orange transition-colors">
+          <Link to="/" className={`${location.pathname === '/' ? 'text-food-orange' : 'text-food-dark'} hover:text-food-orange transition-colors`}>
             Home
           </Link>
-          <Link to="/about" className="text-food-dark hover:text-food-orange transition-colors">
+          <Link to="/about" className={`${location.pathname === '/about' ? 'text-food-orange' : 'text-food-dark'} hover:text-food-orange transition-colors`}>
             About
           </Link>
+          {isLoggedIn && (
+            <Link to="/settings" className={`${location.pathname === '/settings' ? 'text-food-orange' : 'text-food-dark'} hover:text-food-orange transition-colors`}>
+              Connected Apps
+            </Link>
+          )}
         </div>
         
         <div className="flex items-center space-x-4">
@@ -31,14 +37,25 @@ const Navbar = () => {
             <Search className="h-5 w-5" />
           </Button>
           
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2 border-food-orange text-food-orange hover:bg-food-orange hover:text-white"
-            onClick={() => navigate('/login')}
-          >
-            {isLoggedIn ? 'Account' : 'Login'}
-            <LogIn className="h-4 w-4" />
-          </Button>
+          {isLoggedIn ? (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2 border-food-orange text-food-orange hover:bg-food-orange hover:text-white"
+              onClick={() => navigate('/settings')}
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2 border-food-orange text-food-orange hover:bg-food-orange hover:text-white"
+              onClick={() => navigate('/login')}
+            >
+              Login
+              <LogIn className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </nav>
